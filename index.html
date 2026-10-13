@@ -128,62 +128,19 @@ aside{background:var(--panel);border-right:1px solid var(--line);display:flex;fl
 /* ============================================================
    1) CONFIGURACION — editar solo esto
    ============================================================ */
-// Universo: la misma hoja del tablero de farmacias
-const UNIVERSO = { sheetId: "10vad4ydr6dIMwr9T0eMBYVvhHCV2f11PxswgCSczo-o", gid: "" };
-
-// Planes de accion: hoja aparte con, como minimo, las columnas
-// "Codigo" (de la sucursal) y "Plan de accion". Opcionales: "Estado", "Fecha", "Responsable", "Observaciones".
-// Una sucursal puede aparecer en varias filas si tiene varios planes.
-// Alternativa: dejar sheetId vacio y agregar la columna "Plan de accion" en la hoja del universo.
-const PLANES = { sheetId: "", gid: "" };
+// Los datos llegan de /api/datos (api/datos.js), que lee las hojas con una
+// cuenta de servicio. Los IDs de las hojas viven en las variables de entorno
+// de Vercel y no aparecen en esta pagina: asi las hojas pueden ser privadas.
+const FUENTE = "/api/datos";
 
 const AUTO_REFRESH_MIN = 5;   // 0 = desactivado
 
 const PALETA_PLANES = ["#dc2626","#2563eb","#d97706","#7c3aed","#059669","#db2777","#0891b2","#65a30d","#ea580c","#4f46e5"];
 
 /* ============================================================
-   2) LECTURA DE GOOGLE SHEETS (JSONP gviz, evita CORS)
+   2) UTILIDADES
    ============================================================ */
 const norm = s => (s ?? "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g," ").trim();
-
-function cargarHoja({sheetId, gid}){
-  return new Promise((resolve,reject)=>{
-    const cb = "gviz_" + Math.random().toString(36).slice(2);
-    const s = document.createElement("script");
-    const to = setTimeout(()=>{fin(); reject(new Error("La hoja no respondió a tiempo"));}, 20000);
-    function fin(){ clearTimeout(to); delete window[cb]; s.remove(); }
-    window[cb] = resp => {
-      fin();
-      if(resp.status === "error") return reject(new Error("La hoja no es pública o el ID es incorrecto"));
-      resolve(tablaAObjetos(resp.table));
-    };
-    s.onerror = () => { fin(); reject(new Error("Error de red al leer la hoja")); };
-    s.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}` + (gid ? `&gid=${gid}` : "") + `&_=${Date.now()}`;
-    document.head.appendChild(s);
-  });
-}
-function tablaAObjetos(table){
-  let headers = (table.cols||[]).map(c => c.label || "");
-  let filas = table.rows || [];
-  // Si gviz no detecto encabezados, la primera fila los trae
-  if(headers.every(h=>!h) && filas.length){
-    headers = filas[0].c.map(c => c ? (c.f ?? c.v ?? "") : "");
-    filas = filas.slice(1);
-  }
-  return filas.map(r => {
-    const o = { _raw: [] };
-    headers.forEach((h,i) => {
-      const c = (r.c||[])[i];
-      // f es el valor formateado (fechas legibles); v el crudo
-      const v = c ? String(c.f ?? c.v ?? "").trim() : "";
-      if(h) o._raw.push({label:h, value:v});
-      o[norm(h)] = v;
-    });
-    return o;
-  }).filter(o => o._raw.some(c => c.value));
-}
-// Busca una columna por coincidencia parcial del encabezado normalizado
-const col = (o, ...pistas) => { for(const k in o){ if(k!=="_raw" && pistas.some(p => k.includes(p))) return o[k]; } return ""; };
 const coord = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isNaN(n) ? NaN : n; };
 const enSV = (la,lo) => !isNaN(la) && !isNaN(lo) && la>=12.5 && la<=14.7 && lo>=-90.3 && lo<=-87.4;
 
@@ -195,29 +152,26 @@ const estado = { q:"", vista:"", plan:"", depto:"", prov:"", ocultos:new Set(), 
 
 function normalizarSucursal(o){
   return {
-    raw: o._raw,
-    codigo: col(o,"codigo"),
-    nombre: col(o,"nombre") || col(o,"codigo") || "(Sin nombre)",
-    proveedor: col(o,"proveedor") || "—",
-    estatus: col(o,"estatus","estado").toUpperCase(),
-    municipio: col(o,"municipio"),
-    departamento: col(o,"departamento"),
-    direccion: col(o,"direccion"),
-    lat: coord(col(o,"latitud")), lon: coord(col(o,"longitud")),
-    planEnUniverso: col(o,"plan"),
+    codigo: o.codigo,
+    nombre: o.nombre || o.codigo || "(Sin nombre)",
+    proveedor: o.proveedor || "—",
+    estatus: (o.estatus || "").toUpperCase(),
+    municipio: o.municipio,
+    departamento: o.departamento,
+    direccion: o.direccion,
+    lat: coord(o.lat), lon: coord(o.lon),
+    planEnUniverso: o.plan,
     planes: []
   };
 }
 
-function unirPlanes(sucursales, filasPlanes){
+function unirPlanes(sucursales, planes){
   const porCodigo = new Map(sucursales.map(s => [norm(s.codigo), s]));
   let sinCruce = 0;
-  for(const f of filasPlanes){
-    const s = porCodigo.get(norm(col(f,"codigo")));
-    const nombre = col(f,"plan");
-    if(!nombre) continue;
+  for(const p of planes){
+    const s = porCodigo.get(norm(p.codigo));
     if(!s){ sinCruce++; continue; }
-    s.planes.push({ nombre, detalle: f._raw.filter(c => c.value && !/codigo|plan/.test(norm(c.label))) });
+    s.planes.push({ nombre: p.plan, detalle: p.detalle });
   }
   return sinCruce;
 }
@@ -368,10 +322,13 @@ async function cargar(){
   const est = document.getElementById("estado");
   est.textContent = "Cargando…";
   try{
-    const universo = (await cargarHoja(UNIVERSO)).map(normalizarSucursal);
+    const resp = await fetch(FUENTE, { cache:"no-store" });
+    const datos = await resp.json().catch(() => ({ error:`el servidor respondió ${resp.status}` }));
+    if(!resp.ok || datos.error) throw new Error(datos.error || `el servidor respondió ${resp.status}`);
+    const universo = datos.sucursales.map(normalizarSucursal);
     let aviso = "";
-    if(PLANES.sheetId){
-      const sinCruce = unirPlanes(universo, await cargarHoja(PLANES));
+    if(datos.planes){
+      const sinCruce = unirPlanes(universo, datos.planes);
       if(sinCruce) aviso = ` · ${sinCruce} planes con código que no está en el universo`;
     }else if(universo.some(s => s.planEnUniverso)){
       universo.forEach(s => { if(s.planEnUniverso) s.planes.push({ nombre:s.planEnUniverso, detalle:[] }); });
@@ -391,7 +348,7 @@ async function cargar(){
       (fueraDeMapa ? ` · ${fueraDeMapa} sin coordenadas válidas` : "") + aviso;
   }catch(e){
     est.textContent = "Error al cargar";
-    document.getElementById("lista").innerHTML = `<div class="error">No se pudieron leer los datos: ${esc(e.message)}. Verificá que la hoja esté compartida como "Cualquier persona con el enlace" y volvé a intentar.</div>`;
+    document.getElementById("lista").innerHTML = `<div class="error">No se pudieron leer los datos: ${esc(e.message)}. Probá con "Actualizar datos"; si sigue fallando, avisá a quien administra el mapa.</div>`;
   }
 }
 
