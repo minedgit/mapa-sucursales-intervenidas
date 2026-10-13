@@ -13,4 +13,6 @@ Mientras `PLANES.sheetId` esté vacío y la hoja del universo no tenga columna d
 
 ## Publicación
 
-GitHub Pages desde la rama `main`. El sitio es público.
+**https://mapa-sucursales-intervenidas.vercel.app/**
+
+Vercel (equipo Mined) publica automáticamente cada push a `main`. El sitio es público.
