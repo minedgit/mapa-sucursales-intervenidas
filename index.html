@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sucursales Intervenidas · El Salvador</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f1f5f9; --panel:#ffffff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+  --head1:#0f2a33; --head2:#134e4a; --accent:#0d9488; --universo:#94a3b8;
+  --warn-bg:#fef3c7; --warn-ink:#92400e;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
+header{background:linear-gradient(90deg,var(--head1),var(--head2));color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px}
+header .logo{width:42px;height:42px;border-radius:10px;background:var(--accent);display:grid;place-items:center;flex:none}
+header h1{margin:0;font-size:19px;font-weight:700}
+header p{margin:2px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#99c7c1}
+header .estado{margin-left:auto;font-size:12px;color:#cde7e3;text-align:right}
+#demo{display:none;background:var(--warn-bg);color:var(--warn-ink);padding:8px 20px;font-size:13px;font-weight:600;border-bottom:1px solid #fcd34d}
+main{flex:1;display:grid;grid-template-columns:360px 1fr;min-height:0}
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.buscar{padding:14px;border-bottom:1px solid var(--line)}
+.buscar input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px}
+.lista-head{display:flex;justify-content:space-between;padding:10px 16px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+#lista{overflow:auto;flex:1}
+.item{padding:11px 16px;border-top:1px solid var(--line);cursor:pointer;display:flex;gap:10px}
+.item:hover,.item.sel{background:#f0fdfa}
+.item .pt{width:12px;height:12px;border-radius:50%;margin-top:4px;flex:none;border:2px solid #fff;box-shadow:0 0 0 1px #cbd5e1}
+.item b{font-size:14px;display:block}
+.item small{color:var(--muted);font-size:12px}
+.chips{margin-top:5px;display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;color:#fff}
+.chip.gris{background:#e2e8f0;color:#475569}
+.centro{display:flex;flex-direction:column;min-height:0;min-width:0}
+.tarjetas{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.card span{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.card strong{display:block;font-size:26px;margin:2px 0}
+.card small{color:var(--muted);font-size:12px}
+.card.int strong{color:var(--accent)}
+.filtros{display:flex;flex-wrap:wrap;gap:10px;padding:0 14px 12px;align-items:end}
+.filtros label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;display:flex;flex-direction:column;gap:4px}
+.filtros select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;min-width:150px;background:#fff}
+.filtros button{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:13px;cursor:pointer}
+.filtros button.prim{background:var(--accent);color:#fff;border-color:var(--accent)}
+.mapwrap{position:relative;flex:1;margin:0 14px 14px;border-radius:12px;overflow:hidden;border:1px solid var(--line);min-height:320px}
+#map{position:absolute;inset:0}
+.leyenda{position:absolute;right:12px;bottom:28px;z-index:500;background:#fff;border-radius:10px;padding:10px 12px;box-shadow:0 4px 14px rgba(15,23,42,.15);font-size:12px;max-width:260px;max-height:70%;overflow:auto}
+.leyenda h4{margin:0 0 6px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.leyenda .fila{display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;user-select:none}
+.leyenda .fila.off{opacity:.35}
+.leyenda .fila i{width:12px;height:12px;border-radius:50%;flex:none;border:2px solid #fff;box-shadow:0 0 0 1px #94a3b8}
+.leyenda .fila i.u{width:8px;height:8px;background:var(--universo)}
+.leyenda .fila em{margin-left:auto;font-style:normal;color:var(--muted)}
+.contador{position:absolute;left:12px;bottom:12px;z-index:500;background:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(15,23,42,.15)}
+.popup b{font-size:14px}
+.popup table{border-collapse:collapse;margin-top:6px;font-size:12px}
+.popup td{padding:2px 6px 2px 0;vertical-align:top}
+.popup td:first-child{color:var(--muted)}
+.popup .planes{margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+.error{padding:20px;color:#b91c1c;font-size:14px}
+@media (max-width:860px){
+  main{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  aside{max-height:38vh;border-right:0;border-bottom:1px solid var(--line)}
+  .tarjetas{grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 16px}
+  .card strong{font-size:20px}
+  .filtros{padding:0 16px 10px}
+  .filtros select{min-width:0;width:100%}
+  .filtros label{flex:1 1 45%}
+  .mapwrap{margin:0 16px 16px}
+  header .estado{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+  </div>
+  <div>
+    <h1>Sucursales Intervenidas</h1>
+    <p>Universo de sucursales · Planes de acción · El Salvador</p>
+  </div>
+  <div class="estado" id="estado">Cargando…</div>
+</header>
+<div id="demo">MODO DEMOSTRACIÓN — los planes de acción mostrados son de ejemplo, asignados al azar. No representan intervenciones reales.</div>
+<main>
+  <aside>
+    <div class="buscar"><input id="q" placeholder="Buscar por nombre, código o municipio…"></div>
+    <div class="lista-head"><span id="lista-total">—</span><span>Plan</span></div>
+    <div id="lista"></div>
+  </aside>
+  <section class="centro">
+    <div class="tarjetas">
+      <div class="card"><span>Universo</span><strong id="c-total">—</strong><small>sucursales en la vista</small></div>
+      <div class="card int"><span>Intervenidas</span><strong id="c-int">—</strong><small id="c-int-pct">—</small></div>
+      <div class="card"><span>Sin intervenir</span><strong id="c-sin">—</strong><small id="c-sin-pct">—</small></div>
+    </div>
+    <div class="filtros">
+      <label>Mostrar
+        <select id="f-vista">
+          <option value="">Todo el universo</option>
+          <option value="INT">Solo intervenidas</option>
+          <option value="SIN">Solo sin intervenir</option>
+        </select>
+      </label>
+      <label>Plan de acción<select id="f-plan"><option value="">Todos</option></select></label>
+      <label>Departamento<select id="f-depto"><option value="">Todos</option></select></label>
+      <label>Proveedor<select id="f-prov"><option value="">Todos</option></select></label>
+      <button class="prim" id="b-actualizar">Actualizar datos</button>
+      <button id="b-limpiar">Limpiar filtros</button>
+    </div>
+    <div class="mapwrap">
+      <div id="map"></div>
+      <div class="leyenda" id="leyenda"></div>
+      <div class="contador" id="contador">—</div>
+    </div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ============================================================
+   1) CONFIGURACION — editar solo esto
+   ============================================================ */
+// Universo: la misma hoja del tablero de farmacias
+const UNIVERSO = { sheetId: "10vad4ydr6dIMwr9T0eMBYVvhHCV2f11PxswgCSczo-o", gid: "" };
+
+// Planes de accion: hoja aparte con, como minimo, las columnas
+// "Codigo" (de la sucursal) y "Plan de accion". Opcionales: "Estado", "Fecha", "Responsable", "Observaciones".
+// Una sucursal puede aparecer en varias filas si tiene varios planes.
+// Alternativa: dejar sheetId vacio y agregar la columna "Plan de accion" en la hoja del universo.
+const PLANES = { sheetId: "", gid: "" };
+
+const AUTO_REFRESH_MIN = 5;   // 0 = desactivado
+
+const PALETA_PLANES = ["#dc2626","#2563eb","#d97706","#7c3aed","#059669","#db2777","#0891b2","#65a30d","#ea580c","#4f46e5"];
+
+/* ============================================================
+   2) LECTURA DE GOOGLE SHEETS (JSONP gviz, evita CORS)
+   ============================================================ */
+const norm = s => (s ?? "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g," ").trim();
+
+function cargarHoja({sheetId, gid}){
+  return new Promise((resolve,reject)=>{
+    const cb = "gviz_" + Math.random().toString(36).slice(2);
+    const s = document.createElement("script");
+    const to = setTimeout(()=>{fin(); reject(new Error("La hoja no respondió a tiempo"));}, 20000);
+    function fin(){ clearTimeout(to); delete window[cb]; s.remove(); }
+    window[cb] = resp => {
+      fin();
+      if(resp.status === "error") return reject(new Error("La hoja no es pública o el ID es incorrecto"));
+      resolve(tablaAObjetos(resp.table));
+    };
+    s.onerror = () => { fin(); reject(new Error("Error de red al leer la hoja")); };
+    s.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}` + (gid ? `&gid=${gid}` : "") + `&_=${Date.now()}`;
+    document.head.appendChild(s);
+  });
+}
+function tablaAObjetos(table){
+  let headers = (table.cols||[]).map(c => c.label || "");
+  let filas = table.rows || [];
+  // Si gviz no detecto encabezados, la primera fila los trae
+  if(headers.every(h=>!h) && filas.length){
+    headers = filas[0].c.map(c => c ? (c.f ?? c.v ?? "") : "");
+    filas = filas.slice(1);
+  }
+  return filas.map(r => {
+    const o = { _raw: [] };
+    headers.forEach((h,i) => {
+      const c = (r.c||[])[i];
+      // f es el valor formateado (fechas legibles); v el crudo
+      const v = c ? String(c.f ?? c.v ?? "").trim() : "";
+      if(h) o._raw.push({label:h, value:v});
+      o[norm(h)] = v;
+    });
+    return o;
+  }).filter(o => o._raw.some(c => c.value));
+}
+// Busca una columna por coincidencia parcial del encabezado normalizado
+const col = (o, ...pistas) => { for(const k in o){ if(k!=="_raw" && pistas.some(p => k.includes(p))) return o[k]; } return ""; };
+const coord = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,"")); return isNaN(n) ? NaN : n; };
+const enSV = (la,lo) => !isNaN(la) && !isNaN(lo) && la>=12.5 && la<=14.7 && lo>=-90.3 && lo<=-87.4;
+
+/* ============================================================
+   3) MODELO
+   ============================================================ */
+let TODAS = [], COLOR_PLAN = {}, MODO_DEMO = false;
+const estado = { q:"", vista:"", plan:"", depto:"", prov:"", ocultos:new Set(), sel:null };
+
+function normalizarSucursal(o){
+  return {
+    raw: o._raw,
+    codigo: col(o,"codigo"),
+    nombre: col(o,"nombre") || col(o,"codigo") || "(Sin nombre)",
+    proveedor: col(o,"proveedor") || "—",
+    estatus: col(o,"estatus","estado").toUpperCase(),
+    municipio: col(o,"municipio"),
+    departamento: col(o,"departamento"),
+    direccion: col(o,"direccion"),
+    lat: coord(col(o,"latitud")), lon: coord(col(o,"longitud")),
+    planEnUniverso: col(o,"plan"),
+    planes: []
+  };
+}
+
+function unirPlanes(sucursales, filasPlanes){
+  const porCodigo = new Map(sucursales.map(s => [norm(s.codigo), s]));
+  let sinCruce = 0;
+  for(const f of filasPlanes){
+    const s = porCodigo.get(norm(col(f,"codigo")));
+    const nombre = col(f,"plan");
+    if(!nombre) continue;
+    if(!s){ sinCruce++; continue; }
+    s.planes.push({ nombre, detalle: f._raw.filter(c => c.value && !/codigo|plan/.test(norm(c.label))) });
+  }
+  return sinCruce;
+}
+
+// Solo para mostrar el diseno mientras no existe la hoja de planes
+function asignarPlanesDemo(sucursales){
+  const ejemplos = ["Plan de mejora de atención","Plan de abastecimiento","Plan de infraestructura","Plan de cumplimiento normativo"];
+  let semilla = 7;
+  const azar = () => (semilla = (semilla*9301+49297)%233280)/233280;
+  for(const s of sucursales){
+    if(azar() < 0.18) s.planes.push({ nombre: ejemplos[Math.floor(azar()*ejemplos.length)], detalle: [{label:"Nota", value:"Dato de ejemplo"}] });
+  }
+}
+
+const intervenida = s => s.planes.length > 0;
+const colorDe = s => intervenida(s) ? COLOR_PLAN[s.planes[0].nombre] : getComputedStyle(document.documentElement).getPropertyValue("--universo").trim();
+
+function asignarColores(){
+  COLOR_PLAN = {};
+  const nombres = [...new Set(TODAS.flatMap(s => s.planes.map(p => p.nombre)))].sort();
+  nombres.forEach((n,i) => COLOR_PLAN[n] = PALETA_PLANES[i % PALETA_PLANES.length]);
+}
+
+/* ============================================================
+   4) FILTROS
+   ============================================================ */
+function coincideBase(s){
+  if(estado.depto && s.departamento !== estado.depto) return false;
+  if(estado.prov && s.proveedor !== estado.prov) return false;
+  if(estado.q){
+    const t = norm([s.nombre,s.codigo,s.municipio,s.departamento,s.direccion].join(" "));
+    if(!t.includes(norm(estado.q))) return false;
+  }
+  return true;
+}
+function coincidePlan(s){
+  if(!intervenida(s)) return !estado.plan && !estado.ocultos.has("__universo");
+  const visibles = s.planes.filter(p => !estado.ocultos.has(p.nombre) && (!estado.plan || p.nombre === estado.plan));
+  return visibles.length > 0;
+}
+function visibles(){
+  return TODAS.filter(s => {
+    if(!coincideBase(s)) return false;
+    if(estado.vista === "INT" && !intervenida(s)) return false;
+    if(estado.vista === "SIN" && intervenida(s)) return false;
+    return coincidePlan(s);
+  });
+}
+
+/* ============================================================
+   5) RENDER
+   ============================================================ */
+const map = L.map("map", { zoomControl:true, preferCanvas:true }).setView([13.75,-88.9], 9);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap" }).addTo(map);
+const capaUniverso = L.layerGroup().addTo(map);
+const capaIntervenidas = L.layerGroup().addTo(map);   // encima: siempre se ven sobre el universo
+const marcadores = new Map();
+
+const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function popup(s){
+  const filas = [["Código",s.codigo],["Proveedor",s.proveedor],["Estatus",s.estatus],["Municipio",s.municipio],["Departamento",s.departamento],["Dirección",s.direccion]]
+    .filter(f => f[1]).map(f => `<tr><td>${f[0]}</td><td>${esc(f[1])}</td></tr>`).join("");
+  const planes = intervenida(s)
+    ? `<div class="planes"><b style="font-size:12px">Planes de acción (${s.planes.length})</b>` + s.planes.map(p =>
+        `<div style="margin-top:4px"><span class="chip" style="background:${COLOR_PLAN[p.nombre]}">${esc(p.nombre)}</span>` +
+        (p.detalle.length ? `<table>${p.detalle.map(d => `<tr><td>${esc(d.label)}</td><td>${esc(d.value)}</td></tr>`).join("")}</table>` : "") +
+        `</div>`).join("") + `</div>`
+    : `<div class="planes" style="color:#64748b;font-size:12px">Sin intervención registrada</div>`;
+  return `<div class="popup"><b>${esc(s.nombre)}</b><table>${filas}</table>${planes}</div>`;
+}
+
+function renderMapa(lista){
+  capaUniverso.clearLayers(); capaIntervenidas.clearLayers(); marcadores.clear();
+  for(const s of lista){
+    if(!enSV(s.lat,s.lon)) continue;
+    const int = intervenida(s);
+    const m = L.circleMarker([s.lat,s.lon], int
+      ? { radius:8, color:"#fff", weight:2, fillColor:colorDe(s), fillOpacity:.95 }
+      : { radius:4, color:"#64748b", weight:.5, fillColor:colorDe(s), fillOpacity:.55 });
+    m.bindPopup(() => popup(s), { maxWidth:320 });
+    m.on("click", () => seleccionar(s, false));
+    (int ? capaIntervenidas : capaUniverso).addLayer(m);
+    marcadores.set(s, m);
+  }
+}
+
+function renderLista(lista){
+  // Intervenidas primero: es lo que se viene a buscar
+  const orden = [...lista].sort((a,b) => (intervenida(b)-intervenida(a)) || a.nombre.localeCompare(b.nombre));
+  document.getElementById("lista-total").textContent = `${lista.length} sucursales`;
+  document.getElementById("lista").innerHTML = orden.slice(0,600).map((s,i) => `
+    <div class="item${estado.sel===s?" sel":""}" data-i="${TODAS.indexOf(s)}">
+      <span class="pt" style="background:${colorDe(s)}"></span>
+      <div><b>${esc(s.nombre)}</b><small>${esc([s.municipio,s.departamento].filter(Boolean).join(" · "))}</small>
+        <div class="chips">${intervenida(s) ? s.planes.map(p => `<span class="chip" style="background:${COLOR_PLAN[p.nombre]}">${esc(p.nombre)}</span>`).join("") : `<span class="chip gris">Sin intervención</span>`}</div>
+      </div>
+    </div>`).join("") || `<div class="error" style="color:#64748b">Ninguna sucursal coincide con los filtros.</div>`;
+}
+
+function renderTarjetas(){
+  // Las tarjetas ignoran "Mostrar" y el plan: deben reflejar el universo de la zona elegida
+  const base = TODAS.filter(coincideBase);
+  const n = base.length, i = base.filter(intervenida).length;
+  const pct = x => n ? `${Math.round(x*100/n)}% del universo` : "—";
+  document.getElementById("c-total").textContent = n;
+  document.getElementById("c-int").textContent = i;
+  document.getElementById("c-int-pct").textContent = pct(i);
+  document.getElementById("c-sin").textContent = n - i;
+  document.getElementById("c-sin-pct").textContent = pct(n - i);
+}
+
+function renderLeyenda(){
+  const base = TODAS.filter(coincideBase);
+  const filas = Object.keys(COLOR_PLAN).map(n => {
+    const c = base.filter(s => s.planes.some(p => p.nombre === n)).length;
+    return `<div class="fila${estado.ocultos.has(n)?" off":""}" data-plan="${esc(n)}"><i style="background:${COLOR_PLAN[n]}"></i>${esc(n)}<em>${c}</em></div>`;
+  }).join("");
+  const sin = base.filter(s => !intervenida(s)).length;
+  document.getElementById("leyenda").innerHTML =
+    `<h4>Plan de acción</h4>${filas || `<div style="color:#64748b">Sin planes cargados</div>`}` +
+    `<div class="fila${estado.ocultos.has("__universo")?" off":""}" data-plan="__universo" style="margin-top:4px;border-top:1px solid #e2e8f0;padding-top:6px"><i class="u"></i>Sin intervención<em>${sin}</em></div>`;
+}
+
+function render(){
+  const lista = visibles();
+  renderMapa(lista); renderLista(lista); renderTarjetas(); renderLeyenda();
+  document.getElementById("contador").textContent = `${lista.filter(s=>enSV(s.lat,s.lon)).length} en el mapa`;
+}
+
+function seleccionar(s, volar){
+  estado.sel = s;
+  const m = marcadores.get(s);
+  if(m){ if(volar) map.flyTo(m.getLatLng(), 15, {duration:.6}); m.openPopup(); }
+  document.querySelectorAll(".item").forEach(el => el.classList.toggle("sel", TODAS[+el.dataset.i] === s));
+}
+
+function llenarSelect(id, valores){
+  const sel = document.getElementById(id), actual = sel.value;
+  sel.innerHTML = `<option value="">Todos</option>` + valores.map(v => `<option>${esc(v)}</option>`).join("");
+  sel.value = valores.includes(actual) ? actual : "";
+}
+
+/* ============================================================
+   6) CARGA
+   ============================================================ */
+async function cargar(){
+  const est = document.getElementById("estado");
+  est.textContent = "Cargando…";
+  try{
+    const universo = (await cargarHoja(UNIVERSO)).map(normalizarSucursal);
+    let aviso = "";
+    if(PLANES.sheetId){
+      const sinCruce = unirPlanes(universo, await cargarHoja(PLANES));
+      if(sinCruce) aviso = ` · ${sinCruce} planes con código que no está en el universo`;
+    }else if(universo.some(s => s.planEnUniverso)){
+      universo.forEach(s => { if(s.planEnUniverso) s.planes.push({ nombre:s.planEnUniverso, detalle:[] }); });
+    }else{
+      MODO_DEMO = true;
+      asignarPlanesDemo(universo);
+    }
+    document.getElementById("demo").style.display = MODO_DEMO ? "block" : "none";
+    TODAS = universo;
+    asignarColores();
+    llenarSelect("f-plan", Object.keys(COLOR_PLAN));
+    llenarSelect("f-depto", [...new Set(TODAS.map(s=>s.departamento).filter(Boolean))].sort());
+    llenarSelect("f-prov", [...new Set(TODAS.map(s=>s.proveedor).filter(Boolean))].sort());
+    render();
+    const fueraDeMapa = TODAS.filter(s => !enSV(s.lat,s.lon)).length;
+    est.textContent = `Actualizado ${new Date().toLocaleTimeString("es-SV",{hour:"2-digit",minute:"2-digit"})}` +
+      (fueraDeMapa ? ` · ${fueraDeMapa} sin coordenadas válidas` : "") + aviso;
+  }catch(e){
+    est.textContent = "Error al cargar";
+    document.getElementById("lista").innerHTML = `<div class="error">No se pudieron leer los datos: ${esc(e.message)}. Verificá que la hoja esté compartida como "Cualquier persona con el enlace" y volvé a intentar.</div>`;
+  }
+}
+
+/* ============================================================
+   7) EVENTOS
+   ============================================================ */
+document.getElementById("q").addEventListener("input", e => { estado.q = e.target.value; render(); });
+[["f-vista","vista"],["f-plan","plan"],["f-depto","depto"],["f-prov","prov"]].forEach(([id,k]) =>
+  document.getElementById(id).addEventListener("change", e => { estado[k] = e.target.value; render(); }));
+document.getElementById("b-actualizar").addEventListener("click", cargar);
+document.getElementById("b-limpiar").addEventListener("click", () => {
+  Object.assign(estado, { q:"", vista:"", plan:"", depto:"", prov:"" }); estado.ocultos.clear();
+  ["q","f-vista","f-plan","f-depto","f-prov"].forEach(id => document.getElementById(id).value = "");
+  map.setView([13.75,-88.9], 9); render();
+});
+document.getElementById("leyenda").addEventListener("click", e => {
+  const f = e.target.closest(".fila"); if(!f) return;
+  const k = f.dataset.plan;
+  estado.ocultos.has(k) ? estado.ocultos.delete(k) : estado.ocultos.add(k);
+  render();
+});
+document.getElementById("lista").addEventListener("click", e => {
+  const it = e.target.closest(".item"); if(it) seleccionar(TODAS[+it.dataset.i], true);
+});
+
+cargar();
+if(AUTO_REFRESH_MIN > 0) setInterval(cargar, AUTO_REFRESH_MIN*60000);
+</script>
+</body>
+</html>
